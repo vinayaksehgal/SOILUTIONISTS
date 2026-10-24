@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriBot AI Field Manager</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f3f4f6; }
+        .data-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: transform 0.2s; }
+        .data-card:hover { transform: translateY(-2px); }
+        .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #3498db; width: 20px; height: 20px; -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="p-6 max-w-7xl mx-auto">
+
+    <div class="mb-8 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold">AgriBot Command Center</h1>
+                <p class="opacity-90 mt-1">Real-Time IoT Sensor Stream & AI Agronomist</p>
+            </div>
+            <div class="text-right">
+                <div class="inline-flex items-center bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">
+                    <span id="connection-status" class="w-2 h-2 rounded-full bg-red-400 mr-2"></span>
+                    <span id="last-reading" class="text-sm font-medium">Waiting for signal...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <div class="lg:col-span-2 space-y-6">
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="data-card p-4 border-l-4 border-blue-500">
+                    <p class="text-xs text-gray-500 font-bold uppercase">Nitrogen (N)</p>
+                    <p class="text-2xl font-bold text-gray-800"><span id="val-n">--</span> <span class="text-xs font-normal text-gray-400">mg/kg</span></p>
+                </div>
+                <div class="data-card p-4 border-l-4 border-orange-500">
+                    <p class="text-xs text-gray-500 font-bold uppercase">Phosphorus (P)</p>
+                    <p class="text-2xl font-bold text-gray-800"><span id="val-p">--</span> <span class="text-xs font-normal text-gray-400">mg/kg</span></p>
+                </div>
+                <div class="data-card p-4 border-l-4 border-teal-500">
+                    <p class="text-xs text-gray-500 font-bold uppercase">Potassium (K)</p>
+                    <p class="text-2xl font-bold text-gray-800"><span id="val-k">--</span> <span class="text-xs font-normal text-gray-400">mg/kg</span></p>
+                </div>
+                <div class="data-card p-4 border-l-4 border-cyan-500">
+                    <p class="text-xs text-gray-500 font-bold uppercase">Moisture</p>
+                    <p class="text-2xl font-bold text-gray-800"><span id="val-moist">--</span> <span class="text-xs font-normal text-gray-400">%</span></p>
+                    <p class="text-xs text-gray-400 mt-1">Std: <span id="std-moist">--</span></p>
+                </div>
+                <div class="data-card p-4 border-l-4 border-purple-500">
+                    <p class="text-xs text-gray-500 font-bold uppercase">Soil pH</p>
+                    <p class="text-2xl font-bold text-gray-800"><span id="val-ph">--</span></p>
+                </div>
+                <div class="data-card p-4 border-l-4 border-red-500">
+                    <p class="text-xs text-gray-500 font-bold uppercase">Temperature</p>
+                    <p class="text-2xl font-bold text-gray-800"><span id="val-temp">--</span> <span class="text-xs font-normal text-gray-400">°C</span></p>
+                    
+                </div>
+                <div class="data-card p-4 border-l-4 border-yellow-500 col-span-2">
+                    <p class="text-xs text-gray-500 font-bold uppercase">Sunlight Intensity</p>
+                    <p class="text-2xl font-bold text-gray-800"><span id="val-lux">--</span> <span class="text-xs font-normal text-gray-400">Lux</span></p>
+                    <p class="text-xs text-gray-400 mt-1">Std: <span id="std-lux">--</span></p>
+                </div>
+                <div class="data-card p-4 border-l-4 border-sky-400 col-span-2">
+                    <p class="text-xs text-gray-500 font-bold uppercase">Humidity</p>
+                    <p class="text-2xl font-bold text-gray-800"><span id="val-humidity">--</span> <span class="text-xs font-normal text-gray-400">%</span></p>
+                    <p class="text-xs text-gray-400 mt-1">Std: <span id="std-humidity">--</span></p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="bg-gray-800 p-4 flex justify-between items-center">
+                    <h2 class="text-white font-bold flex items-center">
+                        <span class="text-xl mr-2">🤖</span> AI Daily Agronomist Plan
+                    </h2>
+                    <button onclick="generateAIReport(true)" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-lg font-semibold transition flex items-center">
+                        REGENERATE PLAN
+                    </button>
+                </div>
+                <div class="p-6">
+                    <div id="ai-loading" class="hidden flex items-center text-gray-500 text-sm">
+                        <div class="loader mr-3"></div> Analyzing soil chemistry...
+                    </div>
+                    <div id="ai-report-content" class="prose prose-sm max-w-none text-gray-600">
+                        <p class="italic text-gray-400">Waiting for sensor data to generate first report...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl shadow-sm">
+                <h3 class="font-bold text-gray-700 mb-4">Live Trends</h3>
+                <div style="height: 250px;"><canvas id="mainChart"></canvas></div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl shadow-sm">
+                <h3 class="font-bold text-gray-700 mb-4">NPK Trends</h3>
+                <div style="height: 250px;"><canvas id="npkChart"></canvas></div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl shadow-sm">
+                <h3 class="font-bold text-gray-700 mb-4">Humidity Trends</h3>
+                <div style="height: 250px;"><canvas id="humidityChart"></canvas></div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl shadow-sm">
+                <h3 class="font-bold text-gray-700 mb-4">pH & Sunlight Trends</h3>
+                <div style="height: 250px;"><canvas id="envChart"></canvas></div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-1">
+            <div class="bg-white rounded-2xl shadow-lg border border-gray-100 flex flex-col h-[600px] sticky top-6">
+                <div class="p-4 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
+                    <h3 class="font-bold text-gray-700">AgriBot Assistant</h3>
+                    <p class="text-xs text-gray-500">Ask about your live data</p>
+                </div>
+                
+                <div id="chat-window" class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50">
+                    <div class="bg-white p-3 rounded-lg rounded-tl-none shadow-sm text-sm text-gray-700 border border-gray-100 max-w-[90%]">
+                        Hello! I am connected to your ESP32. I'm monitoring your soil health in real-time.
+                    </div>
+                </div>
+
+                <div class="p-3 bg-white border-t border-gray-100 rounded-b-2xl">
+                    <div class="flex gap-2">
+                        <input type="text" id="chat-input" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" placeholder="Ask a question...">
+                        <button onclick="sendChatMessage()" class="bg-blue-600 text-white rounded-lg px-3 hover:bg-blue-700">
+                            ➤
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global alerts container (bottom of page) -->
+    <div id="global-alerts" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-3xl px-4 pointer-events-none z-50"></div>
+
+    <script>
+        // ============================================
+        // 1. CONFIGURATION (PASTE API KEY HERE)
+        // ============================================
+        const apiKey = "AIzaSyCmkonrkXQX_AbRZHuUD4IVFjOWY7hNLMg"; // <--- YOUR GEMINI KEY GOES HERE
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyB-aOxXWe0oLcqOgzZFlJIlFUQx-vaDZPU",
+            databaseURL: "https://esp-unboxing-default-rtdb.firebaseio.com/"
+        };
+
+        // ============================================
+        // 2. INITIALIZATION
+        // ============================================
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const modelName = "gemini-2.5-flash-preview-09-2025"; // Or "gemini-pro"
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+        let currentData = {};
+        let chart;
+        let npkChart;
+        let envChart;
+        let humidityChart;
+        let isFirstLoad = true;
+
+        // Rolling history for stats (used for std dev calculations) - only keep for Moisture, Sunlight, Humidity
+        const HISTORY_WINDOW = 30;
+        const histories = {
+            Moisture: [], Sunlight: [], Humidity: []
+        };
+
+        function computeStats(arr) {
+            if (!arr || arr.length === 0) return { mean: 0, std: 0 };
+            const n = arr.length;
+            const mean = arr.reduce((s, v) => s + v, 0) / n;
+            const variance = arr.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / n;
+            return { mean, std: Math.sqrt(variance) };
+        }
+
+        function pushHistory(key, value) {
+            if (value === null || value === undefined || isNaN(value)) return;
+            if (!histories[key]) return;
+            histories[key].push(Number(value));
+            if (histories[key].length > HISTORY_WINDOW) histories[key].shift();
+            return computeStats(histories[key]);
+        }
+
+        function triggerAlert(metric, prev, curr, std) {
+            const msg = `${metric} spike: ${prev} → ${curr} (Δ=${(curr-prev).toFixed(2)} > ${(5.0*std).toFixed(2)})`;
+            console.warn('ALERT:', msg);
+
+            // Append alert to the global bottom container, not the AgriBot chat
+            const container = document.getElementById('global-alerts');
+            if (container) {
+                const item = document.createElement('div');
+                item.className = 'mb-2 bg-red-100 text-red-800 p-3 rounded-lg text-sm border border-red-200 shadow-lg pointer-events-auto';
+                item.innerHTML = `⚠️ ${msg}`;
+                container.appendChild(item);
+
+                // Auto-dismiss after 12 seconds with a short fade
+                setTimeout(() => {
+                    item.classList.add('opacity-0', 'transition', 'duration-500');
+                    setTimeout(() => { try { container.removeChild(item); } catch(e){} }, 500);
+                }, 12000);
+            }
+        }
+
+        // ============================================
+        // 3. CORE LOGIC (REAL-TIME LISTENER)
+        // ============================================
+        function initSystem() {
+            console.log("System Initializing...");
+            initChart();
+            initNpkChart();
+            initHumidityChart();
+            initEnvChart();
+            // Start realtime clock for last-reading
+            startRealtimeClock();
+            
+            const dataRef = db.ref('/currentSoilData');
+            
+            dataRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    // Update UI Status
+                    document.getElementById('connection-status').className = "w-2 h-2 rounded-full bg-green-500 mr-2";
+                    // Keep showing Live + current time; clock also updates continuously
+                    document.getElementById('last-reading').textContent = "Live: " + new Date().toLocaleTimeString();
+
+                    // Store Data
+                    currentData = data;
+
+                    // Update Cards
+                    updateCard('val-n', data.N || 0);
+                    updateCard('val-p', data.P || 0);
+                    updateCard('val-k', data.K || 0);
+                    updateCard('val-moist', data.Moisture || 0);
+                    updateCard('val-ph', parseFloat(data.pH || 0).toFixed(1));
+                    updateCard('val-temp', parseFloat(data.Temperature || 0).toFixed(1));
+                    updateCard('val-lux', data.Sunlight || 0);
+                    // Support multiple possible humidity field names from DB: `Humidity`, `humidity`, or misspelt `humidty`
+                    updateCard('val-humidity', data.Humidity || data.humidity || data.humidty || 0);
+
+                    // ---------- STATS & ALERTS (only Moisture, Sunlight, Humidity) ----------
+                    const metrics = [
+                        { key: 'Moisture', idStd: 'std-moist', val: Number(data.Moisture || 0) },
+                        { key: 'Sunlight', idStd: 'std-lux', val: Number(data.Sunlight || 0) },
+                        { key: 'Humidity', idStd: 'std-humidity', val: Number(data.Humidity || data.humidity || data.humidty || 0) }
+                    ];
+
+                    metrics.forEach(m => {
+                        const hist = histories[m.key] || [];
+                        const prev = (hist.length > 0) ? hist[hist.length - 1] : null;
+                        const priorStats = computeStats(hist);
+                        if (prev !== null && priorStats.std > 0) {
+                            const delta = Math.abs(m.val - prev);
+                            if (delta > 5.0 * priorStats.std) {
+                                triggerAlert(m.key, prev, m.val, priorStats.std);
+                            }
+                        }
+
+                        // push current and update std display (only these keys exist in histories)
+                        const newStats = pushHistory(m.key, m.val) || { std: 0 };
+                        const stdEl = document.getElementById(m.idStd);
+                        if (stdEl) stdEl.textContent = (newStats.std || 0).toFixed(2);
+                    });
+
+                    // Update Charts
+                    updateChart(data);
+                    updateNpkChart(data);
+                    updateEnvChart(data);
+                    updateHumidityChart(data);
+
+                    // Trigger AI Report ONLY on first load (to save API calls)
+                    if (isFirstLoad) {
+                        generateAIReport(false);
+                        isFirstLoad = false;
+                    }
+                }
+            });
+        }
+
+        // ============================================
+        // 3a. REALTIME CLOCK FOR LAST READING
+        // ============================================
+        function startRealtimeClock() {
+            const el = document.getElementById('last-reading');
+            if (!el) return;
+            setInterval(() => {
+                const now = new Date().toLocaleTimeString();
+                // Preserve "Live:" prefix if present; else just show time
+                const prefix = (el.textContent && el.textContent.startsWith('Live')) ? 'Live: ' : '';
+                el.textContent = prefix + now;
+            }, 1000);
+        }
+
+        // ============================================
+        // 4. THE AI BRAIN (Replaces Generic Logic)
+        // ============================================
+        async function generateAIReport(isManual) {
+            const reportDiv = document.getElementById('ai-report-content');
+            const loader = document.getElementById('ai-loading');
+            
+            if (!currentData.Temperature) {
+                reportDiv.innerHTML = "<span class='text-red-500'>Error: No sensor data received yet.</span>";
+                return;
+            }
+
+            // Show loading
+            loader.classList.remove('hidden');
+            if (isManual) reportDiv.innerHTML = ""; // Clear only on manual refresh
+
+            // Construct the Prompt
+            const prompt = `
+                You are a senior agricultural consultant. Give agricultural solutions that can be executed practically in fields. avoid generalised suggestions
+                Analyze this live sensor data from a field:
+                - Moisture: ${currentData.Moisture}%
+                - pH: ${currentData.pH}
+                - Nitrogen: ${currentData.N} mg/kg
+                - Phosphorus: ${currentData.P} mg/kg
+                - Potassium: ${currentData.K} mg/kg
+                - Temperature: ${currentData.Temperature} C
+                - Sunlight: ${currentData.Sunlight} Lux
+
+                TASK: Provide a "Daily Action Plan" with 3 distinct, high-priority tasks.
+                RULES:
+                1. Be specific (e.g., "Add 5kg of Urea" instead of "Add Nitrogen").
+                2. If Moisture is < 40%, assume drought stress.
+                3. If pH is < 6.0, suggest Lime.
+                4. Keep it under 150 words.
+                5. Use HTML formatting (<b> for bold, <ul> for lists).
+            `;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                
+                const json = await response.json();
+                const advice = json.candidates[0].content.parts[0].text;
+                
+                // Format and Display
+                const formattedAdvice = advice.replace(/\n/g, '<br>');
+                reportDiv.innerHTML = formattedAdvice;
+            } catch (e) {
+                console.error(e);
+                reportDiv.innerHTML = "<span class='text-red-500'>AI Connection Failed. Check API Key.</span>";
+            } finally {
+                loader.classList.add('hidden');
+            }
+        }
+
+        // ============================================
+        // 5. CHATBOT LOGIC
+        // ============================================
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const msg = input.value;
+            if (!msg) return;
+
+            // UI Update
+            const win = document.getElementById('chat-window');
+            win.innerHTML += `<div class="bg-blue-100 p-3 rounded-lg rounded-tr-none ml-auto max-w-[90%] text-sm text-blue-900 mb-2">${msg}</div>`;
+            input.value = "";
+            win.scrollTop = win.scrollHeight;
+
+            // Contextual Prompt
+            const prompt = `Context: Current soil moisture is ${currentData.Moisture}%, pH is ${currentData.pH}. User asks: ${msg}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const json = await response.json();
+                const reply = json.candidates[0].content.parts[0].text;
+                
+                win.innerHTML += `<div class="bg-white p-3 rounded-lg rounded-tl-none shadow-sm text-sm text-gray-700 border border-gray-100 max-w-[90%] mb-2">${reply}</div>`;
+                win.scrollTop = win.scrollHeight;
+            } catch (e) {
+                win.innerHTML += `<div class="text-xs text-red-500">Error connecting to AI.</div>`;
+            }
+        }
+
+        // ============================================
+        // 6. HELPER FUNCTIONS & CHART
+        // ============================================
+        function updateCard(id, val) {
+            const el = document.getElementById(id);
+            if(el) el.textContent = val;
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'Moisture (%)', borderColor: '#0ea5e9', data: [], fill: false },
+                        { label: 'Temp (°C)', borderColor: '#ef4444', data: [], fill: false }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function initNpkChart() {
+            const ctx = document.getElementById('npkChart').getContext('2d');
+            npkChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'Nitrogen (mg/kg)', borderColor: '#3b82f6', data: [], fill: false },
+                        { label: 'Phosphorus (mg/kg)', borderColor: '#f59e0b', data: [], fill: false },
+                        { label: 'Potassium (mg/kg)', borderColor: '#14b8a6', data: [], fill: false }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function initHumidityChart() {
+            const ctx = document.getElementById('humidityChart').getContext('2d');
+            humidityChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'Humidity (%)', borderColor: '#06b6d4', data: [], fill: false },
+                        { label: 'Humidity Std', borderColor: '#bbf7ff', data: [], borderDash: [4,4], fill: false }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function initEnvChart() {
+            const ctx = document.getElementById('envChart').getContext('2d');
+            envChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'Soil pH', borderColor: '#8b5cf6', data: [], fill: false },
+                        { label: 'Sunlight (Lux)', borderColor: '#eab308', data: [], fill: false },
+                        { label: 'Sunlight Std', borderColor: '#fef3c7', data: [], borderDash: [4,4], fill: false }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function updateChart(data) {
+            if (!chart) return;
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            if (chart.data.labels.length > 10) {
+                chart.data.labels.shift();
+                chart.data.datasets.forEach(d => d.data.shift());
+            }
+            
+            chart.data.labels.push(time);
+            // push main values
+            const moistVal = Number(data.Moisture || 0);
+            const tempVal = Number(data.Temperature || 0);
+            chart.data.datasets[0].data.push(moistVal);
+            chart.data.datasets[1].data.push(tempVal);
+            chart.update();
+        }
+
+        function updateNpkChart(data) {
+            if (!npkChart) return;
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            if (npkChart.data.labels.length > 10) {
+                npkChart.data.labels.shift();
+                npkChart.data.datasets.forEach(d => d.data.shift());
+            }
+
+            npkChart.data.labels.push(time);
+            const nVal = Number(data.N || 0);
+            const pVal = Number(data.P || 0);
+            const kVal = Number(data.K || 0);
+
+            npkChart.data.datasets[0].data.push(nVal);
+            npkChart.data.datasets[1].data.push(pVal);
+            npkChart.data.datasets[2].data.push(kVal);
+            npkChart.update();
+        }
+
+        function updateHumidityChart(data) {
+            if (!humidityChart) return;
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            if (humidityChart.data.labels.length > 10) {
+                humidityChart.data.labels.shift();
+                humidityChart.data.datasets.forEach(d => d.data.shift());
+            }
+
+            // Support multiple possible DB keys for humidity
+            const hum = data.Humidity || data.humidity || data.humidty || 0;
+
+            humidityChart.data.labels.push(time);
+            humidityChart.data.datasets[0].data.push(Number(hum));
+            const humStats = computeStats(histories.Humidity || []);
+            humidityChart.data.datasets[1].data.push(humStats.std || 0);
+            humidityChart.update();
+        }
+
+        function updateEnvChart(data) {
+            if (!envChart) return;
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            if (envChart.data.labels.length > 10) {
+                envChart.data.labels.shift();
+                envChart.data.datasets.forEach(d => d.data.shift());
+            }
+
+            envChart.data.labels.push(time);
+            const phVal = parseFloat(data.pH || 0);
+            const sunVal = Number(data.Sunlight || 0);
+            envChart.data.datasets[0].data.push(phVal);
+            envChart.data.datasets[1].data.push(sunVal);
+            const sunStats = computeStats(histories.Sunlight || []);
+            envChart.data.datasets[2].data.push(sunStats.std || 0);
+            envChart.update();
+        }
+
+        // Boot up
+        document.addEventListener('DOMContentLoaded', initSystem);
+    </script>
+</body>
+</html>

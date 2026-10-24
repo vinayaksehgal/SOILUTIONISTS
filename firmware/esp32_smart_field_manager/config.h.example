@@ -1,0 +1,46 @@
+/**
+ * ==============================================================================
+ * Smart Field Manager - ESP32 Firmware Configuration Template
+ * ==============================================================================
+ * Copy this file to "config.h" and configure your local Wi-Fi and Firebase keys.
+ * DO NOT commit your live credentials to public repositories!
+ * ==============================================================================
+ */
+
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// --- Wi-Fi Credentials ---
+#define WIFI_SSID           "YOUR_WIFI_SSID"
+#define WIFI_PASSWORD       "YOUR_WIFI_PASSWORD"
+
+// --- Firebase Configuration ---
+// Example: "https://your-project-default-rtdb.firebaseio.com/"
+#define FIREBASE_HOST       "https://esp-unboxing-default-rtdb.firebaseio.com/"
+#define FIREBASE_AUTH       "YOUR_FIREBASE_DATABASE_SECRET_OR_WEB_API_KEY"
+
+// --- Hardware Pin Definitions ---
+// MAX485 Modbus Transceiver Pins
+#define PIN_RS485_RX        16    // ESP32 RX2 (Connected to MAX485 RO via 5V->3.3V Level Shifter)
+#define PIN_RS485_TX        17    // ESP32 TX2 (Connected to MAX485 DI via 3.3V->5V Level Shifter)
+#define PIN_RS485_DE_RE     4     // Driver/Receiver Enable pin (HIGH = TX, LOW = RX)
+
+// Environmental & Soil Sensors
+#define PIN_DHT22           23    // DHT22 Digital Data pin
+#define PIN_SOIL_MOISTURE   34    // Capacitive Soil Moisture Sensor Analog Out (ADC1)
+#define PIN_I2C_SDA         21    // BH1750 Ambient Light Sensor SDA
+#define PIN_I2C_SCL         22    // BH1750 Ambient Light Sensor SCL
+
+// Status LED (Optional)
+#define PIN_STATUS_LED      2     // Onboard LED for telemetry pulse
+
+// --- Telemetry & Sensor Tuning ---
+#define SENSOR_POLL_INTERVAL_MS   3000   // Polling cycle in milliseconds (e.g., 3-5 seconds)
+#define SLIDING_WINDOW_SIZE       30     // Samples for statistical noise filter
+#define OUTLIER_SIGMA_THRESHOLD   3.5    // Deviations > 3.5 * sigma discarded as transient noise
+
+// Calibration defaults for Capacitive Moisture Sensor (ADC values at 12-bit resolution 0-4095)
+#define MOISTURE_AIR_VALUE        3200   // Sensor value in dry air (0% moisture)
+#define MOISTURE_WATER_VALUE      1350   // Sensor value in water (100% moisture)
+
+#endif // CONFIG_H

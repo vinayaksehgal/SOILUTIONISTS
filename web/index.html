@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriBot AI Field Manager | SOILUTIONISTS (Team 12 - RVCE)</title>
+    
+    <!-- Meta SEO & Open Graph -->
+    <meta name="description" content="A Full-Stack Agronomic Smart Field Manager fusing RS485 Modbus sensors with Google Gemini Generative AI. Developed by Team SOILUTIONISTS at RV College of Engineering.">
+    <meta name="keywords" content="IoT Agriculture, Smart Farming, RS485 Modbus, NPK Sensor, ESP32, Firebase, Gemini AI, Precision Agronomy">
+    <meta name="author" content="Vinayak Sehgal, Sagnik Nayek, Anshul R Anchan, Nihar Tak">
+    
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS (CDN for utility flexibility) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: ['class', '[data-theme="dark"]'],
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Firebase SDK v8 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom Application Stylesheet -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="p-4 md:p-8 max-w-7xl mx-auto transition-colors duration-300">
+
+    <!-- ==================================================================== -->
+    <!-- TOP HEADER / HERO COMMAND BAR                                        -->
+    <!-- ==================================================================== -->
+    <header class="mb-8 bg-gradient-to-r from-emerald-700 via-teal-800 to-slate-900 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
+        <!-- Background subtle mesh glow -->
+        <div class="absolute -right-16 -top-16 w-80 h-80 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute right-1/3 -bottom-20 w-64 h-64 bg-teal-400/10 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div>
+                <div class="flex items-center gap-3 mb-2 flex-wrap">
+                    <span class="text-xs font-bold tracking-widest uppercase bg-white/15 px-3 py-1 rounded-full text-emerald-300 border border-white/10">
+                        RVCE • TEAM 12 • EL PHASE 3
+                    </span>
+                    <span class="text-xs font-medium bg-emerald-500/20 px-2.5 py-0.5 rounded-full text-emerald-200">
+                        SOILUTIONISTS
+                    </span>
+                </div>
+                <h1 class="text-2xl md:text-4xl font-extrabold tracking-tight flex items-center gap-3">
+                    <span>AgriBot AI Field Manager</span>
+                </h1>
+                <p class="text-emerald-100/90 text-sm md:text-base mt-1.5 max-w-2xl">
+                    Full-Stack Agronomic Decision Support: Fusing RS485 Modbus Telemetry with Google Gemini Context-Engine.
+                </p>
+            </div>
+
+            <!-- Header Action Controls -->
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- Status Badge -->
+                <div class="inline-flex items-center bg-black/30 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/15 shadow-inner">
+                    <span id="connection-status-dot" class="pulse-dot live mr-2.5"></span>
+                    <div class="text-left">
+                        <p id="connection-status-text" class="text-xs font-semibold text-white leading-tight">Connecting...</p>
+                        <p id="realtime-clock" class="text-[10px] text-emerald-300 font-mono">--:--:--</p>
+                    </div>
+                </div>
+
+                <!-- Simulation Toggle -->
+                <div class="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-2 rounded-2xl border border-white/15" title="Switch between physical ESP32 Firebase stream and local simulated field telemetry">
+                    <span class="text-xs font-medium text-emerald-100">Simulation</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="sim-mode-toggle" class="sr-only peer">
+                        <div class="w-9 h-5 bg-black/40 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                </div>
+
+                <!-- Settings Button -->
+                <button id="open-settings-btn" class="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-2xl border border-white/15 transition backdrop-blur-md" title="Configure API Keys & Database URL">
+                    ⚙️
+                </button>
+
+                <!-- Theme Toggle Button -->
+                <button id="theme-toggle-btn" class="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-2xl border border-white/15 transition backdrop-blur-md" title="Toggle Dark/Light Mode">
+                    🌓
+                </button>
+            </div>
+        </div>
+
+        <!-- Secondary Toolbar: Crop Target & Simulation Scenario Selector -->
+        <div class="relative z-10 mt-6 pt-5 border-t border-white/10 flex flex-wrap items-center justify-between gap-4 text-xs">
+            <div class="flex items-center gap-2">
+                <span class="text-emerald-200 font-medium">Target Crop Profile:</span>
+                <select id="crop-selector" class="bg-black/30 text-white border border-white/20 rounded-xl px-3 py-1.5 focus:outline-none focus:border-emerald-400">
+                    <option value="Wheat">Wheat (Triticum aestivum)</option>
+                    <option value="Rice">Rice (Paddy)</option>
+                    <option value="Tomato">Tomato (Solanum lycopersicum)</option>
+                    <option value="Maize">Maize (Corn)</option>
+                    <option value="Potato">Potato (Solanum tuberosum)</option>
+                </select>
+            </div>
+
+            <!-- Simulation Scenario Chips (shown for interactive demo) -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-emerald-200/80 font-medium">Test Scenarios:</span>
+                <button data-sim-scenario="normal" class="bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg text-emerald-200 transition">Normal</button>
+                <button data-sim-scenario="drought" class="bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg text-amber-200 transition">Drought Stress</button>
+                <button data-sim-scenario="acidic_lockout" class="bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg text-purple-200 transition">Acidic Lockout</button>
+                <button data-sim-scenario="nitrogen_low" class="bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-lg text-blue-200 transition">Low Nitrogen</button>
+                <button id="export-csv-btn" class="bg-emerald-600/80 hover:bg-emerald-500 px-3 py-1 rounded-lg text-white font-medium transition ml-2">Export CSV</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ==================================================================== -->
+    <!-- REAL-TIME TELEMETRY METRIC OVERVIEW CARDS                            -->
+    <!-- ==================================================================== -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <!-- Nitrogen (N) -->
+        <div class="metric-card n-card">
+            <div class="flex justify-between items-start">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Nitrogen (N)</p>
+                <span class="status-pill good">Macro</span>
+            </div>
+            <p class="text-3xl font-extrabold text-slate-800 dark:text-white mt-2">
+                <span id="val-n">--</span> <span class="text-xs font-normal text-slate-400">mg/kg</span>
+            </p>
+            <p class="text-[11px] text-slate-400 mt-1">RS485 Modbus RTU</p>
+        </div>
+
+        <!-- Phosphorus (P) -->
+        <div class="metric-card p-card">
+            <div class="flex justify-between items-start">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Phosphorus (P)</p>
+                <span class="status-pill good">Macro</span>
+            </div>
+            <p class="text-3xl font-extrabold text-slate-800 dark:text-white mt-2">
+                <span id="val-p">--</span> <span class="text-xs font-normal text-slate-400">mg/kg</span>
+            </p>
+            <p class="text-[11px] text-slate-400 mt-1">RS485 Modbus RTU</p>
+        </div>
+
+        <!-- Potassium (K) -->
+        <div class="metric-card k-card">
+            <div class="flex justify-between items-start">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Potassium (K)</p>
+                <span class="status-pill good">Macro</span>
+            </div>
+            <p class="text-3xl font-extrabold text-slate-800 dark:text-white mt-2">
+                <span id="val-k">--</span> <span class="text-xs font-normal text-slate-400">mg/kg</span>
+            </p>
+            <p class="text-[11px] text-slate-400 mt-1">RS485 Modbus RTU</p>
+        </div>
+
+        <!-- Soil Moisture -->
+        <div class="metric-card moist-card">
+            <div class="flex justify-between items-start">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Soil Moisture</p>
+                <span class="status-pill good">Capacitive</span>
+            </div>
+            <p class="text-3xl font-extrabold text-slate-800 dark:text-white mt-2">
+                <span id="val-moist">--</span> <span class="text-xs font-normal text-slate-400">%</span>
+            </p>
+            <p class="text-[11px] text-slate-400 mt-1">Std Dev (σ): <span id="std-moist" class="font-mono text-slate-600 dark:text-slate-300">--</span></p>
+        </div>
+
+        <!-- Soil pH -->
+        <div class="metric-card ph-card">
+            <div class="flex justify-between items-start">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Soil pH</p>
+                <span class="status-pill warning">Chemistry</span>
+            </div>
+            <p class="text-3xl font-extrabold text-slate-800 dark:text-white mt-2">
+                <span id="val-ph">--</span>
+            </p>
+            <p class="text-[11px] text-slate-400 mt-1">Bioavailability Index</p>
+        </div>
+
+        <!-- Temperature -->
+        <div class="metric-card temp-card">
+            <div class="flex justify-between items-start">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Temperature</p>
+                <span class="status-pill good">DHT22</span>
+            </div>
+            <p class="text-3xl font-extrabold text-slate-800 dark:text-white mt-2">
+                <span id="val-temp">--</span> <span class="text-xs font-normal text-slate-400">°C</span>
+            </p>
+            <p class="text-[11px] text-slate-400 mt-1">Ambient Field Air</p>
+        </div>
+
+        <!-- Sunlight Intensity -->
+        <div class="metric-card lux-card">
+            <div class="flex justify-between items-start">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sunlight</p>
+                <span class="status-pill good">BH1750</span>
+            </div>
+            <p class="text-3xl font-extrabold text-slate-800 dark:text-white mt-2">
+                <span id="val-lux">--</span> <span class="text-xs font-normal text-slate-400">Lux</span>
+            </p>
+            <p class="text-[11px] text-slate-400 mt-1">Std Dev (σ): <span id="std-lux" class="font-mono text-slate-600 dark:text-slate-300">--</span></p>
+        </div>
+
+        <!-- Relative Humidity -->
+        <div class="metric-card hum-card">
+            <div class="flex justify-between items-start">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Humidity</p>
+                <span class="status-pill good">DHT22</span>
+            </div>
+            <p class="text-3xl font-extrabold text-slate-800 dark:text-white mt-2">
+                <span id="val-humidity">--</span> <span class="text-xs font-normal text-slate-400">%</span>
+            </p>
+            <p class="text-[11px] text-slate-400 mt-1">Std Dev (σ): <span id="std-humidity" class="font-mono text-slate-600 dark:text-slate-300">--</span></p>
+        </div>
+    </section>
+
+    <!-- ==================================================================== -->
+    <!-- MAIN CONTENT: AI AGRONOMIST & INTERACTIVE CHATBOT                    -->
+    <!-- ==================================================================== -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        
+        <!-- Left: AI Daily Agronomist Plan & Overall Soil Health Diagnostic -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- Soil Health Diagnostics Banner -->
+            <div class="metric-card flex flex-col md:flex-row items-center justify-between gap-6 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700">
+                <div class="flex items-center gap-5">
+                    <!-- Radial Gauge SVG -->
+                    <div class="relative w-24 h-24 flex items-center justify-center">
+                        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" stroke="currentColor" stroke-width="8" class="text-slate-200 dark:text-slate-700 fill-none" />
+                            <circle id="health-score-ring" cx="50" cy="50" r="45" stroke="#10b981" stroke-width="8" stroke-dasharray="283" stroke-dashoffset="30" stroke-linecap="round" class="fill-none transition-all duration-1000 ease-out" />
+                        </svg>
+                        <span id="health-score-val" class="absolute font-black text-xl text-slate-800 dark:text-white">92%</span>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-bold text-slate-800 dark:text-white text-lg">Soil Health Index</h3>
+                            <span id="health-score-badge" class="status-pill good">Optimal</span>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+                            Dynamic agronomic envelope score calculated by cross-referencing NPK balance, moisture retention, and pH lockout risk.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="text-right">
+                    <span class="text-xs font-mono text-slate-400 block">Edge-to-Cloud Latency</span>
+                    <span class="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">1.2 s</span>
+                    <span class="text-[10px] text-slate-400 block">Glass-to-Glass Sync</span>
+                </div>
+            </div>
+
+            <!-- AI Daily Agronomist Plan Card -->
+            <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-md border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div class="bg-slate-900 text-white p-5 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">🤖</span>
+                        <div>
+                            <h2 class="text-base font-bold">AI Daily Agronomist Plan</h2>
+                            <p class="text-xs text-slate-400">Context Vector Injection • Google Gemini 1.5</p>
+                        </div>
+                    </div>
+                    <button id="regen-plan-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2 rounded-xl font-semibold transition flex items-center gap-1.5 shadow-sm active:scale-95">
+                        <span>REGENERATE PLAN</span>
+                    </button>
+                </div>
+
+                <div class="p-6">
+                    <div id="ai-loading" class="hidden flex items-center gap-3 text-slate-500 dark:text-slate-400 text-sm mb-4">
+                        <span class="spinner"></span> 
+                        <span>Synthesizing multi-parameter soil chemistry vector...</span>
+                    </div>
+                    <div id="ai-report-content" class="prose prose-sm dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 leading-relaxed">
+                        <p class="italic text-slate-400">Waiting for sensor stream to generate context-aware daily plan...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Chart 1: Moisture & Temp -->
+                <div class="metric-card">
+                    <h3 class="font-bold text-sm text-slate-700 dark:text-slate-200 mb-3 flex items-center justify-between">
+                        <span>Live Moisture & Temperature</span>
+                        <span class="text-[10px] text-slate-400 font-mono">Real-Time</span>
+                    </h3>
+                    <div style="height: 220px;"><canvas id="mainChart"></canvas></div>
+                </div>
+
+                <!-- Chart 2: NPK Balance -->
+                <div class="metric-card">
+                    <h3 class="font-bold text-sm text-slate-700 dark:text-slate-200 mb-3 flex items-center justify-between">
+                        <span>NPK Nutrient Balance</span>
+                        <span class="text-[10px] text-slate-400 font-mono">mg/kg</span>
+                    </h3>
+                    <div style="height: 220px;"><canvas id="npkChart"></canvas></div>
+                </div>
+
+                <!-- Chart 3: Humidity Trends -->
+                <div class="metric-card">
+                    <h3 class="font-bold text-sm text-slate-700 dark:text-slate-200 mb-3 flex items-center justify-between">
+                        <span>Ambient Humidity & Variance (σ)</span>
+                        <span class="text-[10px] text-slate-400 font-mono">%</span>
+                    </h3>
+                    <div style="height: 220px;"><canvas id="humidityChart"></canvas></div>
+                </div>
+
+                <!-- Chart 4: pH & Sunlight Trends -->
+                <div class="metric-card">
+                    <h3 class="font-bold text-sm text-slate-700 dark:text-slate-200 mb-3 flex items-center justify-between">
+                        <span>Soil pH & Sunlight Intensity</span>
+                        <span class="text-[10px] text-slate-400 font-mono">pH / Lux</span>
+                    </h3>
+                    <div style="height: 220px;"><canvas id="envChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: AgriBot Interactive Chat Assistant -->
+        <div class="lg:col-span-1">
+            <div class="bg-white dark:bg-slate-800 rounded-3xl shadow-lg border border-slate-200 dark:border-slate-700 flex flex-col h-[740px] sticky top-6 overflow-hidden">
+                
+                <!-- Chat Header -->
+                <div class="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-lg">
+                            🌾
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-800 dark:text-white text-sm">AgriBot Assistant</h3>
+                            <p class="text-[11px] text-slate-400">Contextual Soil Inquirer • Gemini 1.5</p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Prompt Chips -->
+                    <div class="flex items-center gap-1.5 mt-3 overflow-x-auto pb-1 text-[11px]">
+                        <button class="quick-prompt-btn whitespace-nowrap bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 transition">
+                            Is my nitrogen low?
+                        </button>
+                        <button class="quick-prompt-btn whitespace-nowrap bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 transition">
+                            Check pH lockout
+                        </button>
+                        <button class="quick-prompt-btn whitespace-nowrap bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 transition">
+                            Irrigation advice
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Chat Messages Scroll Container -->
+                <div id="chat-window" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 dark:bg-slate-900/30">
+                    <div class="bg-white dark:bg-slate-800 p-3 rounded-2xl rounded-tl-none shadow-sm text-sm text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 max-w-[85%] leading-relaxed">
+                        👋 Namaste! I am your AI Agronomist, connected directly to your ESP32 soil sensor telemetry. Ask me anything about your current soil chemistry or fertilizer requirements!
+                    </div>
+                </div>
+
+                <!-- Chat Input Form -->
+                <div class="p-3 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
+                    <div class="flex gap-2">
+                        <input type="text" id="chat-input" class="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 placeholder:text-slate-400" placeholder="Ask about fertilizer, moisture, or pH...">
+                        <button id="chat-send-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-4 flex items-center justify-center font-bold transition shadow-sm active:scale-95">
+                            ➤
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- GLOBAL TOAST ANOMALY ALERTS CONTAINER (FLOATING AT BOTTOM)           -->
+    <!-- ==================================================================== -->
+    <div id="global-alerts" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4 pointer-events-none z-50"></div>
+
+    <!-- ==================================================================== -->
+    <!-- SETTINGS MODAL DIALOG                                                -->
+    <!-- ==================================================================== -->
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                <h3 class="font-bold text-slate-800 dark:text-white text-base">Configuration Settings</h3>
+                <button id="close-settings-btn" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold text-lg">✕</button>
+            </div>
+            <div class="p-5 space-y-4 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Google Gemini API Key</label>
+                    <input type="password" id="cfg-gemini-key" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 font-mono">
+                    <p class="text-[10px] text-slate-400 mt-1">Stored safely in browser localStorage; never sent to third-party servers.</p>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Gemini Model Name</label>
+                    <input type="text" id="cfg-gemini-model" value="gemini-1.5-flash" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 font-mono">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Firebase Realtime Database URL</label>
+                    <input type="text" id="cfg-firebase-url" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg p-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 font-mono">
+                </div>
+            </div>
+            <div class="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
+                <button id="save-settings-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 rounded-xl text-xs transition">
+                    Save Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- FOOTER & ACADEMIC CREDITS                                            -->
+    <!-- ==================================================================== -->
+    <footer class="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs flex flex-col md:flex-row justify-between items-center gap-4">
+        <div>
+            <p class="font-bold text-slate-700 dark:text-slate-300">
+                RV College of Engineering, Bengaluru • Experiential Learning (ACY 2025-26)
+            </p>
+            <p class="mt-0.5">
+                Team 12 (SOILUTIONISTS): Vinayak Sehgal (CI), Sagnik Nayek (AS), Anshul R Anchan (CI), Nihar Tak (ME)
+            </p>
+        </div>
+        <div class="flex items-center gap-4 text-emerald-600 dark:text-emerald-400 font-medium">
+            <a href="../docs/paper/TEAM_12_RESEARCH_PAPER.pdf" target="_blank" class="hover:underline flex items-center gap-1">
+                📄 Research Paper
+            </a>
+            <a href="https://drive.google.com/drive/folders/1LObgHP-8FnibCEHOyeGb3u59S0CDat0n" target="_blank" class="hover:underline flex items-center gap-1">
+                📁 Google Drive Folder
+            </a>
+            <a href="https://drive.google.com/file/d/1JynEJBXrDMlMAF9Xfsgh1bgar-lcGFdk/view?usp=sharing" target="_blank" class="hover:underline flex items-center gap-1">
+                🎥 Video Prototype
+            </a>
+        </div>
+    </footer>
+
+    <!-- Application Script Modules -->
+    <script src="js/config.js"></script>
+    <script src="js/mock-data.js"></script>
+    <script src="js/ai-agronomist.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Arduino / PlatformIO Build Artifacts
+*.elf
+*.bin
+*.hex
+*.o
+*.a
+*.d
+build/
+.pio/
+.vscode/
+.idea/
+
+# Secret & Local Configuration Files
+firmware/esp32_smart_field_manager/config.h
+.env
+.env.local
+*.log
+
+# Node / Web Dependencies (if expanded)
+node_modules/
+package-lock.json
+dist/
+
+# Scratch and Temporary Development Files
+scratch/
+__pycache__/
+*.pyc
